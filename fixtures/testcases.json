@@ -1,0 +1,2935 @@
+{
+  "meta": {
+    "domain": "booking",
+    "targets": {
+      "mini-stay-db": "mini-stay SQLite, written by the service (be/db, both stacks open the same file)",
+      "mini-stay-pricing": "mini-stay pricing -- nights x nightly rate plus integer-bps tax, and cancellation refund tiers (be/api)",
+      "mini-stay-booking": "mini-stay booking lifecycle -- hold, confirm, check-in, check-out, cancel, hold expiry, no-show (be/api)",
+      "mini-stay-availability": "mini-stay inventory -- no overbooking a room for any night, including under concurrent requests (be/api)",
+      "mini-stay-security": "mini-stay authorization boundaries -- no/wrong/forged token, role confusion, cross-guest access (be/api)",
+      "mini-stay-fe": "mini-stay HTML pages -- hotels, rooms, a booking, a guest's bookings and admin overview (Playwright)",
+      "frankfurter-api": "frankfurter.dev public FX API (no key) -- historical-rate equality and latest shape, used to convert a stay price"
+    },
+    "idPolicy": "immutable",
+    "nextId": 251,
+    "note": "Generated from features/*.feature by testcases/build.js. Every scenario carries @case:N; an N missing here is an error."
+  },
+  "cases": {
+    "1": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "The store has the documented tables",
+      "priority": "High",
+      "steps": [
+        "Then the store has tables hotels, room_types, guests, hoteliers, hotel_owners, bookings, booking_events, ledger"
+      ]
+    },
+    "2": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A room's capacity and inventory are bounded by CHECK",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a room type with zero capacity fails a CHECK",
+        "And inserting a room type with negative inventory fails a CHECK"
+      ]
+    },
+    "3": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A room type references a real hotel",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a room type for a missing hotel fails a FOREIGN KEY"
+      ]
+    },
+    "4": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A booking references a real guest, hotel and room type",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a booking for a missing guest fails a FOREIGN KEY",
+        "And inserting a booking for a missing room type fails a FOREIGN KEY"
+      ]
+    },
+    "5": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A booking event references a real booking",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a booking event for a missing booking fails a FOREIGN KEY"
+      ]
+    },
+    "6": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Money amounts are bounded by CHECK",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a room type with a negative nightly rate fails a CHECK",
+        "And inserting a booking with a negative total fails a CHECK",
+        "And inserting a booking with negative tax fails a CHECK"
+      ]
+    },
+    "7": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A booking's dates run forward and cover at least one night",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a booking whose check-out is before its check-in fails a CHECK",
+        "And inserting a booking with zero nights fails a CHECK"
+      ]
+    },
+    "8": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A booking status is one of the lifecycle states",
+      "priority": "High",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a booking with status \"reserved\" fails a CHECK"
+      ]
+    },
+    "9": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A booking event names a known actor",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a booking event with actor \"robot\" fails a CHECK"
+      ]
+    },
+    "10": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A cancellation policy is one of the known kinds",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a room type with cancellation \"whenever\" fails a CHECK"
+      ]
+    },
+    "11": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A ledger entry is a real, non-zero amount with a known reason and party",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a ledger row with zero delta fails a CHECK",
+        "And inserting a ledger row with reason \"tip\" fails a CHECK",
+        "And inserting a ledger row with party type \"government\" fails a CHECK"
+      ]
+    },
+    "12": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A hotel's tax rate is not negative",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting a hotel with a negative tax rate fails a CHECK"
+      ]
+    },
+    "13": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "An idempotency key is unique across bookings",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema applied",
+        "Then inserting two bookings with the same idempotency key fails on the second"
+      ]
+    },
+    "14": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Seeding twice leaves the same rows",
+      "priority": "Medium",
+      "steps": [
+        "Given a throwaway database with the schema and seed applied",
+        "Then applying the seed again changes no row counts"
+      ]
+    },
+    "15": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Holding a room writes a held booking with the priced money",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "Then the booking row is held",
+        "And the booking total row equals its base plus tax",
+        "And the booking's first event moves to held by the guest"
+      ]
+    },
+    "16": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A held booking snapshots the rate and the cancellation policy",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "Then the booking row snapshots the room's nightly rate and cancellation policy"
+      ]
+    },
+    "17": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "The hold expiry is the creation time plus the hold window",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "Then the booking hold expiry is after its creation time"
+      ]
+    },
+    "18": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Confirming a hold moves it to confirmed and records the transition",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "And the booking is confirmed",
+        "Then the booking row is confirmed",
+        "And a booking event records held to confirmed by the guest"
+      ]
+    },
+    "19": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Confirming posts the price to the ledger",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "And the booking is confirmed",
+        "Then a payment ledger row for the booking equals its total"
+      ]
+    },
+    "20": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A held booking has posted nothing to the ledger",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "Then the booking has no ledger rows"
+      ]
+    },
+    "21": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A full stay writes an event for every transition",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "And the booking is confirmed",
+        "And the booking is checked in",
+        "And the booking is checked out",
+        "Then the booking's events run held, confirmed, checked_in, checked_out"
+      ]
+    },
+    "22": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Cancelling a confirmed booking records the transition and a refund",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking of room 1 starting 40 days out",
+        "And the booking is cancelled",
+        "Then the booking row is cancelled",
+        "And a refund ledger row for the booking is a debit",
+        "And a booking event records confirmed to cancelled by the guest"
+      ]
+    },
+    "23": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Cancelling an unpaid hold refunds nothing",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "And the booking is cancelled",
+        "Then the booking row is cancelled",
+        "And the booking has no refund ledger rows"
+      ]
+    },
+    "24": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A no-show is a hotelier transition off a confirmed booking",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "And the booking is confirmed",
+        "And the booking is marked a no-show",
+        "Then the booking row is no_show",
+        "And a booking event records confirmed to no_show by the hotelier"
+      ]
+    },
+    "25": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Confirming an expired hold marks it expired and pays nothing",
+      "priority": "High",
+      "steps": [
+        "Given a hold that has already expired",
+        "And confirming the expired hold is attempted",
+        "Then the booking row is expired",
+        "And the booking has no ledger rows"
+      ]
+    },
+    "26": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A held booking occupies one room on each of its nights",
+      "priority": "High",
+      "steps": [
+        "Given a held booking of room 3 for 2 nights starting 70 days out",
+        "Then each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "27": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "The scarce room is never occupied beyond its inventory",
+      "priority": "High",
+      "steps": [
+        "Given the scarce room is fully booked for 1 night starting 80 days out",
+        "Then no night shows that room occupied beyond its inventory",
+        "And a further hold on that room and night is refused"
+      ]
+    },
+    "28": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A cancelled hold stops occupying the room",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room 3 for 1 nights starting 90 days out",
+        "And the booking is cancelled",
+        "Then no room of that type is occupied on that night"
+      ]
+    },
+    "29": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "No booking references a missing guest, hotel or room type",
+      "priority": "Medium",
+      "steps": [
+        "Then no bookings row references a guest missing from guests",
+        "And no bookings row references a room type missing from room_types"
+      ]
+    },
+    "30": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "Every confirmed or cancelled booking's ledger matches its state",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room 1 starting 40 days out",
+        "Then the booking has exactly one payment ledger row"
+      ]
+    },
+    "31": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "32": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "33": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "34": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "35": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "36": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "37": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "38": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "39": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "40": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "41": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A two-night standard double is priced to the cent",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 1 for 2 nights",
+        "Then the quote total is 26880"
+      ]
+    },
+    "42": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A three-night standard double",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 1 for 3 nights",
+        "Then the quote total is 40320"
+      ]
+    },
+    "43": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A two-night sea-view suite",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 2 for 2 nights",
+        "Then the quote total is 49280"
+      ]
+    },
+    "44": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A one-night penthouse",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 3 for 1 nights",
+        "Then the quote total is 89600"
+      ]
+    },
+    "45": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A two-night queen room at the other hotel's tax rate",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 4 for 2 nights",
+        "Then the quote total is 34500"
+      ]
+    },
+    "46": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A three-night family cabin",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 5 for 3 nights",
+        "Then the quote total is 89700"
+      ]
+    },
+    "47": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A quote is internally consistent",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room 2 for 4 nights",
+        "Then the quote is internally consistent"
+      ]
+    },
+    "48": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A quote carries the room's cancellation policy",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room 3 for 2 nights",
+        "Then the quote shows the cancellation policy \"nonrefundable\""
+      ]
+    },
+    "49": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A quote reports the number of nights it priced",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room 1 for 5 nights",
+        "Then the quote is for 5 nights"
+      ]
+    },
+    "50": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "51": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "52": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "53": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "54": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "55": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "56": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "57": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "58": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "59": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "60": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "61": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "62": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "63": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "64": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "65": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "66": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "67": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "68": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "69": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "70": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A check-out on the check-in day is refused",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 1 with a zero-night stay",
+        "Then the quote is refused with code \"bad_dates\""
+      ]
+    },
+    "71": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A stay that is not a whole number of nights is refused",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 1 for half a night",
+        "Then the quote is refused with code \"bad_dates\""
+      ]
+    },
+    "72": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A quote for a room that does not exist is not found",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room 999 for 2 nights",
+        "Then the quote is refused with status 404"
+      ]
+    },
+    "73": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A room at an inactive hotel cannot be priced",
+      "priority": "High",
+      "steps": [
+        "When I request a quote for room 6 for 2 nights",
+        "Then the quote is refused with code \"hotel_inactive\""
+      ]
+    },
+    "74": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "A check-out before the check-in is refused",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room 1 with check-out before check-in",
+        "Then the quote is refused with code \"bad_dates\""
+      ]
+    },
+    "75": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Holding a room returns a held booking",
+      "priority": "High",
+      "steps": [
+        "Given a guest",
+        "When the guest holds room 1 for 2 nights 200 days out",
+        "Then the booking response is held"
+      ]
+    },
+    "76": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Holding twice with one idempotency key makes one booking",
+      "priority": "High",
+      "steps": [
+        "Given a guest",
+        "When the guest holds room 1 for 2 nights with key \"bk-abc-1\"",
+        "And the guest holds again with key \"bk-abc-1\"",
+        "Then both holds return the same booking"
+      ]
+    },
+    "77": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Holding without a token is unauthenticated",
+      "priority": "High",
+      "steps": [
+        "When an anonymous caller holds room 1 for 2 nights",
+        "Then the request is refused with status 401"
+      ]
+    },
+    "78": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A room at an inactive hotel cannot be held",
+      "priority": "High",
+      "steps": [
+        "Given a guest",
+        "When the guest holds room 6 for 2 nights 200 days out",
+        "Then the request is refused with code \"hotel_inactive\""
+      ]
+    },
+    "79": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Confirming a hold takes the payment and confirms the booking",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the guest confirms the booking",
+        "Then the booking response is confirmed"
+      ]
+    },
+    "80": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Confirming an expired hold is refused and expires the hold",
+      "priority": "High",
+      "steps": [
+        "Given a hold that has already expired",
+        "When the guest confirms the booking",
+        "Then the request is refused with code \"hold_expired\""
+      ]
+    },
+    "81": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A booking can be read back with its events",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the guest reads the booking",
+        "Then the booking reads back held with at least one event"
+      ]
+    },
+    "82": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A guest's booking list includes what they held",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the guest lists their bookings",
+        "Then the booking list includes this booking"
+      ]
+    },
+    "83": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "The hotelier checks a confirmed guest in and out",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When the hotelier checks the booking in",
+        "Then the booking response is checked_in",
+        "When the hotelier checks the booking out",
+        "Then the booking response is checked_out"
+      ]
+    },
+    "84": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A guest cannot work the front desk",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When the guest tries to check the booking in",
+        "Then the request is refused with status 401"
+      ]
+    },
+    "85": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A no-show is a hotelier action on a confirmed booking",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When the hotelier marks the booking a no-show",
+        "Then the booking response is no_show"
+      ]
+    },
+    "86": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a flexible booking well ahead refunds in full",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking of room 1 starting 40 days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "87": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A non-refundable booking refunds nothing",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking of room 3 starting 40 days out",
+        "When the guest cancels the booking",
+        "Then the refund is 0"
+      ]
+    },
+    "88": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling an unpaid hold refunds nothing",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the guest cancels the booking",
+        "Then the booking response is cancelled",
+        "And the refund is 0"
+      ]
+    },
+    "89": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "90": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "91": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "92": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "93": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "94": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "95": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "96": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "97": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "98": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A confirmed booking cannot be confirmed again",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "And the booking is confirmed",
+        "When the guest confirms the booking",
+        "Then the request is refused with code \"bad_state\""
+      ]
+    },
+    "99": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A held booking cannot be checked in before it is confirmed",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the hotelier checks the booking in",
+        "Then the request is refused with code \"bad_state\""
+      ]
+    },
+    "100": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A checked-out booking cannot be cancelled",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "And the booking is checked in",
+        "And the booking is checked out",
+        "When the guest cancels the booking",
+        "Then the request is refused with code \"bad_state\""
+      ]
+    },
+    "101": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A booking cannot be checked out before it is checked in",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking",
+        "When the hotelier checks the booking out",
+        "Then the request is refused with code \"bad_state\""
+      ]
+    },
+    "102": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "A cancelled booking cannot be confirmed",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "And the booking is cancelled",
+        "When the guest confirms the booking",
+        "Then the request is refused with code \"bad_state\""
+      ]
+    },
+    "103": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on the scarce room shows one available",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "When the availability for that window is read",
+        "Then the availability is 1"
+      ]
+    },
+    "104": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Holding the scarce room drops its availability to nought",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held for that window",
+        "When the availability for that window is read",
+        "Then the availability is 0"
+      ]
+    },
+    "105": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A second hold on the held scarce room is refused",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held for that window",
+        "When another guest holds the scarce room for that window",
+        "Then the request is refused with code \"sold_out\""
+      ]
+    },
+    "106": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Confirming the held scarce room keeps availability at nought",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held and confirmed for that window",
+        "When the availability for that window is read",
+        "Then the availability is 0"
+      ]
+    },
+    "107": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Cancelling frees the scarce room again",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held for that window",
+        "And that hold is cancelled",
+        "When the availability for that window is read",
+        "Then the availability is 1"
+      ]
+    },
+    "108": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "An expired hold does not occupy the scarce room",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held for that window with a hold that expires at once",
+        "When the availability for that window is read",
+        "Then the availability is 1"
+      ]
+    },
+    "109": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "When many guests race for the last room exactly one wins",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "When 8 guests hold the scarce room for that window at once",
+        "Then exactly 1 hold succeeds and the rest are sold out"
+      ]
+    },
+    "110": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "The race is decided the same way every time",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "When 12 guests hold the scarce room for that window at once",
+        "Then exactly 1 hold succeeds and the rest are sold out"
+      ]
+    },
+    "111": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for a room with several in stock fills exactly the stock",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for room 2",
+        "When 10 guests hold that room for that window at once",
+        "Then exactly 4 holds succeed and the rest are sold out"
+      ]
+    },
+    "112": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "An overlapping range cannot also take the scarce room",
+      "priority": "High",
+      "steps": [
+        "Given a fresh 2-night window for the scarce room",
+        "And the scarce room is held for that window",
+        "When a guest holds the scarce room shifted one night later",
+        "Then the request is refused with code \"sold_out\""
+      ]
+    },
+    "113": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "The nights immediately after are free",
+      "priority": "High",
+      "steps": [
+        "Given a fresh 2-night window for the scarce room",
+        "And the scarce room is held for that window",
+        "When a guest holds the scarce room for the two nights immediately after",
+        "Then the hold succeeds"
+      ]
+    },
+    "114": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A one-night overlap of a longer stay is still a conflict",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh 3-night window for the scarce room",
+        "And the scarce room is held for that window",
+        "When a guest holds the scarce room shifted two nights later",
+        "Then the request is refused with code \"sold_out\""
+      ]
+    },
+    "115": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on a four-room type shows four available",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for room 2",
+        "When the availability for that window is read",
+        "Then the availability is 4"
+      ]
+    },
+    "116": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Filling a four-room type refuses the fifth hold",
+      "priority": "High",
+      "steps": [
+        "Given a fresh night for room 2",
+        "And the room is held 4 times for that window",
+        "When another guest holds that room for that window",
+        "Then the request is refused with code \"sold_out\""
+      ]
+    },
+    "117": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Cancelling one of several restores one room",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room 2",
+        "And the room is held 4 times for that window",
+        "And one of those holds is cancelled",
+        "When the availability for that window is read",
+        "Then the availability is 1"
+      ]
+    },
+    "118": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A multi-night hold occupies every night of its range",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh 3-night window for the scarce room",
+        "And the scarce room is held for that window",
+        "When the availability for that window is read",
+        "Then the availability is 0"
+      ]
+    },
+    "119": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Availability of a check-out on the check-in day is refused",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "When the availability for a zero-night window is read",
+        "Then the request is refused with status 422"
+      ]
+    },
+    "120": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "Availability of an unknown room is not found",
+      "priority": "Low",
+      "steps": [
+        "When the availability of room 999 for a fresh night is read",
+        "Then the request is refused with status 404"
+      ]
+    },
+    "121": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on room <room> shows its full inventory of <inventory>",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When the availability for that window is read",
+        "Then the availability is <inventory>"
+      ]
+    },
+    "122": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on room <room> shows its full inventory of <inventory>",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When the availability for that window is read",
+        "Then the availability is <inventory>"
+      ]
+    },
+    "123": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on room <room> shows its full inventory of <inventory>",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When the availability for that window is read",
+        "Then the availability is <inventory>"
+      ]
+    },
+    "124": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on room <room> shows its full inventory of <inventory>",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When the availability for that window is read",
+        "Then the availability is <inventory>"
+      ]
+    },
+    "125": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A fresh night on room <room> shows its full inventory of <inventory>",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When the availability for that window is read",
+        "Then the availability is <inventory>"
+      ]
+    },
+    "126": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "127": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "128": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "129": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "130": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A freed room can be taken again",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for the scarce room",
+        "And the scarce room is held for that window",
+        "And that hold is cancelled",
+        "When the scarce room is held for that window again",
+        "Then the hold succeeds"
+      ]
+    },
+    "131": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "Holding a room requires a guest token",
+      "priority": "High",
+      "steps": [
+        "When a room is held with no token",
+        "Then the response status is 401",
+        "And the response is an error with code \"unauthenticated\""
+      ]
+    },
+    "132": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A forged guest token is refused",
+      "priority": "High",
+      "steps": [
+        "When a room is held with a forged token",
+        "Then the response status is 401"
+      ]
+    },
+    "133": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A hotelier token is not accepted as a guest",
+      "priority": "High",
+      "steps": [
+        "When a hotelier tries to hold a room",
+        "Then the response status is 401"
+      ]
+    },
+    "134": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A guest token is not accepted at the front desk",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When the guest tries to check the booking in",
+        "Then the response status is 401"
+      ]
+    },
+    "135": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A guest cannot read another guest's booking",
+      "priority": "High",
+      "steps": [
+        "Given another guest has a booking",
+        "When the guest reads that booking",
+        "Then the response status is 404"
+      ]
+    },
+    "136": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A guest cannot cancel another guest's booking",
+      "priority": "High",
+      "steps": [
+        "Given another guest has a booking",
+        "When the guest cancels that booking",
+        "Then the response status is 404"
+      ]
+    },
+    "137": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A guest cannot confirm another guest's booking",
+      "priority": "High",
+      "steps": [
+        "Given another guest has a booking",
+        "When the guest confirms that booking",
+        "Then the response status is 404"
+      ]
+    },
+    "138": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A hotelier cannot work a hotel it does not own",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When a hotelier who owns no hotel checks the booking in",
+        "Then the response status is 403"
+      ]
+    },
+    "139": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "The admin overview rejects a guest token",
+      "priority": "High",
+      "steps": [
+        "Given a guest",
+        "When the overview is read with the guest's token",
+        "Then the response status is 401"
+      ]
+    },
+    "140": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "The admin booking list rejects a guest token",
+      "priority": "High",
+      "steps": [
+        "Given a guest",
+        "When the admin booking list is read with the guest's token",
+        "Then the response status is 401"
+      ]
+    },
+    "141": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A token that only extends the admin token is rejected",
+      "priority": "High",
+      "steps": [
+        "When the overview is read with a token that extends the admin token",
+        "Then the response status is 401"
+      ]
+    },
+    "142": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "The owning guest still reads their own booking",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the guest reads the booking",
+        "Then the response status is 200"
+      ]
+    },
+    "143": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "The owning hotelier still checks a guest in",
+      "priority": "High",
+      "steps": [
+        "Given a confirmed booking",
+        "When the hotelier checks the booking in",
+        "Then the response status is 200"
+      ]
+    },
+    "144": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "Guest onboarding is open and issues a token",
+      "priority": "Medium",
+      "steps": [
+        "When a guest registers",
+        "Then the response status is 201",
+        "And the response carries a token"
+      ]
+    },
+    "145": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A quote response never carries a bearer token",
+      "priority": "Medium",
+      "steps": [
+        "Given a priced quote",
+        "Then the quote response carries no bearer token"
+      ]
+    },
+    "146": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A booking response never carries a bearer token",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "Then the booking response carries no bearer token"
+      ]
+    },
+    "147": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "A booking read never carries a bearer token",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the guest reads the booking",
+        "Then the read response carries no bearer token"
+      ]
+    },
+    "148": {
+      "module": "05-mini-stay-security",
+      "layer": "BE/API",
+      "tier": "mini-stay-security",
+      "title": "The admin overview never carries a bearer token",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the admin reads the overview",
+        "Then the overview response carries no bearer token"
+      ]
+    },
+    "149": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "The home page lists exactly the active hotels",
+      "priority": "High",
+      "steps": [
+        "Then the home page lists the active hotels, once each"
+      ]
+    },
+    "150": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "The inactive hotel does not appear on the home page",
+      "priority": "High",
+      "steps": [
+        "Then the home page does not list the inactive hotel"
+      ]
+    },
+    "151": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "Each hotel row shows a currency code",
+      "priority": "Medium",
+      "steps": [
+        "Then every hotel row shows a three-letter currency code"
+      ]
+    },
+    "152": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "The home page is not empty",
+      "priority": "Low",
+      "steps": [
+        "Then the home page shows at least one hotel"
+      ]
+    },
+    "153": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A hotel page lists its room types",
+      "priority": "High",
+      "steps": [
+        "When the hotel page for hotel 1 is opened",
+        "Then every room name on screen equals the room row"
+      ]
+    },
+    "154": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "Room rates are shown in the hotel's currency",
+      "priority": "High",
+      "steps": [
+        "When the hotel page for hotel 1 is opened",
+        "Then every room rate on screen equals the room row in the hotel's currency"
+      ]
+    },
+    "155": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "Each room shows its inventory and cancellation policy",
+      "priority": "Medium",
+      "steps": [
+        "When the hotel page for hotel 2 is opened",
+        "Then every room shows its inventory and cancellation policy from the rows"
+      ]
+    },
+    "156": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "An unknown hotel page is not found",
+      "priority": "Low",
+      "steps": [
+        "When the hotel page for hotel 999 is opened",
+        "Then the page reports not found"
+      ]
+    },
+    "157": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A booking page shows the total it was priced at",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the booking page is opened",
+        "Then the booking page total equals the stored total"
+      ]
+    },
+    "158": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A booking page shows the nights and status",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the booking page is opened",
+        "Then the booking page shows the nights from the row",
+        "And the booking page shows status \"held\""
+      ]
+    },
+    "159": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A booking page total is a currency amount",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the booking page is opened",
+        "Then the booking page total is shown as a currency amount"
+      ]
+    },
+    "160": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "An unknown booking page is not found",
+      "priority": "Low",
+      "steps": [
+        "When the booking page for 999999 is opened",
+        "Then the page reports not found"
+      ]
+    },
+    "161": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A <state> booking page shows that status",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "And the booking reaches <state>",
+        "When the booking page is opened",
+        "Then the booking page shows status \"<state>\""
+      ]
+    },
+    "162": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A <state> booking page shows that status",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "And the booking reaches <state>",
+        "When the booking page is opened",
+        "Then the booking page shows status \"<state>\""
+      ]
+    },
+    "163": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A guest's booking list shows the booking they held",
+      "priority": "High",
+      "steps": [
+        "Given a held booking",
+        "When the guest's booking list is opened",
+        "Then the guest's booking list includes the held booking"
+      ]
+    },
+    "164": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "Each booking row links to its booking page",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the guest's booking list is opened",
+        "Then each booking row links to its booking page"
+      ]
+    },
+    "165": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A booking list total is a currency amount",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking",
+        "When the guest's booking list is opened",
+        "Then every booking row total is a currency amount"
+      ]
+    },
+    "166": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "The admin page shows the payment taken as a number",
+      "priority": "High",
+      "steps": [
+        "When the admin page is opened",
+        "Then the admin payment is shown as a number"
+      ]
+    },
+    "167": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "Every admin status count is a non-negative integer",
+      "priority": "Medium",
+      "steps": [
+        "When the admin page is opened",
+        "Then every admin status count is a non-negative integer"
+      ]
+    },
+    "168": {
+      "module": "06-mini-stay-fe",
+      "layer": "FE/UI",
+      "tier": "mini-stay-fe",
+      "title": "A confirmed booking shows up in the admin counts",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking",
+        "When the admin page is opened",
+        "Then the admin counts include a confirmed booking"
+      ]
+    },
+    "169": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting at parity leaves the amount unchanged",
+      "priority": "High",
+      "steps": [
+        "When the conversion of 99999 cents at rate 1.0 is computed",
+        "Then the conversion is 99999"
+      ]
+    },
+    "170": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting at a half rate halves the amount",
+      "priority": "High",
+      "steps": [
+        "When the conversion of 26880 cents at rate 0.5 is computed",
+        "Then the conversion is 13440"
+      ]
+    },
+    "171": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting nothing is nothing",
+      "priority": "High",
+      "steps": [
+        "When the conversion of 0 cents at rate 1.2345 is computed",
+        "Then the conversion is 0"
+      ]
+    },
+    "172": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "An inexact conversion rounds half-up to the cent",
+      "priority": "High",
+      "steps": [
+        "When the conversion of 12345 cents at rate 1.2345 is computed",
+        "Then the conversion is 15240"
+      ]
+    },
+    "173": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A rate above parity raises the amount",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of 100000 cents at rate 1.1 is computed",
+        "Then the conversion is 110000"
+      ]
+    },
+    "174": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "175": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "176": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "177": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "178": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "179": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "180": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "181": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "182": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A higher rate never converts to less, from <low> to <high>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of 100000 cents at rate <low> is noted",
+        "And the conversion of 100000 cents at rate <high> is computed",
+        "Then the conversion is at least the noted conversion"
+      ]
+    },
+    "183": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A higher rate never converts to less, from <low> to <high>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of 100000 cents at rate <low> is noted",
+        "And the conversion of 100000 cents at rate <high> is computed",
+        "Then the conversion is at least the noted conversion"
+      ]
+    },
+    "184": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A higher rate never converts to less, from <low> to <high>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of 100000 cents at rate <low> is noted",
+        "And the conversion of 100000 cents at rate <high> is computed",
+        "Then the conversion is at least the noted conversion"
+      ]
+    },
+    "185": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The historical endpoint answers with rates",
+      "priority": "High",
+      "steps": [
+        "When the historical rates are fetched",
+        "Then the historical response carries a rates object"
+      ]
+    },
+    "186": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The historical response is for one unit of the base currency",
+      "priority": "High",
+      "steps": [
+        "When the historical rates are fetched",
+        "Then the historical response is one unit of US dollars"
+      ]
+    },
+    "187": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The historical euro rate is a positive number",
+      "priority": "High",
+      "steps": [
+        "When the historical rates are fetched",
+        "Then the historical euro rate is a positive number"
+      ]
+    },
+    "188": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The historical pound rate is a positive number",
+      "priority": "Medium",
+      "steps": [
+        "When the historical rates are fetched",
+        "Then the historical pound rate is a positive number"
+      ]
+    },
+    "189": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The historical rate is stable across two reads",
+      "priority": "High",
+      "steps": [
+        "When the historical rates are fetched",
+        "And the historical rates are fetched again",
+        "Then both historical reads return identical rates"
+      ]
+    },
+    "190": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A stay converted at the real historical euro rate is positive and consistent",
+      "priority": "High",
+      "steps": [
+        "When the historical rates are fetched",
+        "And a stay total of 26880 is converted at the historical euro rate",
+        "Then the converted stay is positive and equals the pure conversion"
+      ]
+    },
+    "191": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "A stay converted at the real historical pound rate is positive and consistent",
+      "priority": "Medium",
+      "steps": [
+        "When the historical rates are fetched",
+        "And a stay total of 89600 is converted at the historical pound rate",
+        "Then the converted stay is positive and equals the pure conversion"
+      ]
+    },
+    "192": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The latest endpoint answers with a rates object",
+      "priority": "High",
+      "steps": [
+        "When the latest rates are fetched",
+        "Then the latest response carries a rates object"
+      ]
+    },
+    "193": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The latest euro rate is a positive finite number",
+      "priority": "Medium",
+      "steps": [
+        "When the latest rates are fetched",
+        "Then the latest euro rate is a positive finite number"
+      ]
+    },
+    "194": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The latest response names its date",
+      "priority": "Medium",
+      "steps": [
+        "When the latest rates are fetched",
+        "Then the latest response names a date"
+      ]
+    },
+    "195": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Every latest rate is a positive number",
+      "priority": "Low",
+      "steps": [
+        "When the latest rates are fetched",
+        "Then every latest rate is a positive number"
+      ]
+    },
+    "196": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "The latest response is one unit of the base currency",
+      "priority": "Low",
+      "steps": [
+        "When the latest rates are fetched",
+        "Then the latest response is one unit of US dollars"
+      ]
+    },
+    "197": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "198": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "199": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "200": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "201": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "202": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "203": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "204": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "205": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "206": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "207": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "208": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "209": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "210": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "211": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "212": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "213": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "214": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "215": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "216": {
+      "module": "02-mini-stay-pricing",
+      "layer": "BE/API",
+      "tier": "mini-stay-pricing",
+      "title": "<label> prices to the reference formula",
+      "priority": "Medium",
+      "steps": [
+        "When I request a quote for room <room> for <nights> nights",
+        "Then the quote total matches the pricing formula"
+      ]
+    },
+    "217": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "218": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "219": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "220": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "221": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "222": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "223": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "224": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "225": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "226": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "227": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "228": {
+      "module": "01-mini-stay-db",
+      "layer": "BE/DB",
+      "tier": "mini-stay-db",
+      "title": "A <label> hold prices and occupies correctly",
+      "priority": "Medium",
+      "steps": [
+        "Given a held booking of room <room> for <nights> nights starting <offset> days out",
+        "Then the booking total row equals its base plus tax",
+        "And each night of the booking shows one room of that type occupied"
+      ]
+    },
+    "229": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "230": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "231": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "232": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "233": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "234": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "235": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "236": {
+      "module": "03-mini-stay-booking",
+      "layer": "BE/API",
+      "tier": "mini-stay-booking",
+      "title": "Cancelling a <label> booking refunds per policy",
+      "priority": "Medium",
+      "steps": [
+        "Given a confirmed booking of room <room> starting <offset> days out",
+        "When the guest cancels the booking",
+        "Then the refund matches the cancellation policy"
+      ]
+    },
+    "237": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "238": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "239": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "240": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "241": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "242": {
+      "module": "04-mini-stay-availability",
+      "layer": "BE/API",
+      "tier": "mini-stay-availability",
+      "title": "A race for room <room> fills exactly its <inventory> rooms",
+      "priority": "Medium",
+      "steps": [
+        "Given a fresh night for room <room>",
+        "When <racers> guests hold that room for that window at once",
+        "Then exactly <inventory> holds succeed and the rest are sold out"
+      ]
+    },
+    "243": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "244": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "245": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "246": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "247": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "248": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "249": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    },
+    "250": {
+      "module": "07-frankfurter-api",
+      "layer": "BE/API",
+      "tier": "frankfurter-api",
+      "title": "Converting <cents> at rate <rate> gives <out>",
+      "priority": "Medium",
+      "steps": [
+        "When the conversion of <cents> cents at rate <rate> is computed",
+        "Then the conversion is <out>"
+      ]
+    }
+  }
+}

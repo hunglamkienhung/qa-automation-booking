@@ -1,0 +1,25 @@
+[project]
+name = "booking-qa"
+version = "1.0.0"
+description = "Booking domain: a self-written mini-stay service (guest, hotelier, admin) plus Frankfurter's live FX API; BE over the store's DB and REST, FE over the app surfaces"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+bdd_features_base_dir = "../features"
+addopts = "-q -p no:cacheprovider"
+filterwarnings = ["ignore:Unknown pytest.mark.case:pytest.PytestUnknownMarkWarning"]
+markers = [
+  "case_id(id): the immutable catalogue ID this scenario reports against",
+  "be: backend branch -- no browser",
+  "fe: frontend branch -- Playwright",
+  "db: reads the mini-stay SQLite file directly",
+  "api: calls an HTTP API",
+  "stay: target is the self-written mini-stay service",
+  "pricing: prices quotes against the pricing formula",
+  "booking: the booking lifecycle over HTTP",
+  "availability: inventory and the no-overbooking race",
+  "security: probes authorization boundaries (no/wrong/forged token, cross-party access)",
+  "frankfurter: target is the live frankfurter.dev FX API",
+]
+testpaths = ["be", "fe"]
