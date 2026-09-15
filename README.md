@@ -28,19 +28,19 @@ Nothing here needs an account, a key, or a paid service. Clone it and it runs.
 | **mini-stay** | read + write, real DB | A small booking backend in `services/mini-stay`: one SQLite file, Node standard library only, a REST API for search, holds, the booking lifecycle and cancellation, and small labelled HTML pages for Playwright. |
 | **frankfurter.dev** | read-only, live | A live, keyless FX API (ECB reference rates). A settled historical rate converts a stay price; nobody here can tune it to pass. |
 
-**250 cases**, each with an immutable ID, run in **both** stacks and reconciled
+**1000 cases**, each with an immutable ID, run in **both** stacks and reconciled
 case-by-case. Every layer the service has is tested at that layer:
 
 | Layer | Target | Cases | Where |
 |---|---|---|---|
-| DB | mini-stay SQLite, opened directly | 52 | `be/db` |
-| API | pricing — nights × rate + integer-bps tax | 54 | `be/api` |
+| DB | mini-stay SQLite, opened directly | 202 | `be/db` |
+| API | pricing — nights × rate + integer-bps tax | 504 | `be/api` |
 | API | booking lifecycle — hold, confirm, check-in/out, cancel, expiry, no-show | 36 | `be/api` |
 | API | availability — no overbooking, including under concurrency | 34 | `be/api` |
 | API | authorization boundaries (security) | 18 | `be/api` |
-| API | Frankfurter + the conversion built on it | 36 | `be/api` |
+| API | Frankfurter + the conversion built on it | 186 | `be/api` |
 | FE | mini-stay app pages (Playwright) | 20 | `fe/ui` |
-| | **Total** | **250** | |
+| | **Total** | **1000** | |
 
 ## The invariant worth the whole repo
 

@@ -28,19 +28,19 @@ Không cần tài khoản, không cần key, không cần dịch vụ trả phí
 | **mini-stay** | đọc + ghi, DB thật | Backend đặt phòng nhỏ trong `services/mini-stay`: một file SQLite, chỉ dùng thư viện chuẩn của Node, REST API cho tìm kiếm, giữ chỗ, vòng đời đặt phòng và hủy, cùng các trang HTML gắn nhãn cho Playwright. |
 | **frankfurter.dev** | chỉ đọc, live | API tỉ giá live, không cần key (tỉ giá tham chiếu ECB). Một tỉ giá lịch sử đã chốt dùng để quy đổi giá một kỳ nghỉ; không ai chỉnh cho nó "pass" được. |
 
-**250 case**, mỗi case một ID bất biến, chạy trên **cả hai** stack và đối chiếu
+**1000 case**, mỗi case một ID bất biến, chạy trên **cả hai** stack và đối chiếu
 từng case. Mọi tầng dịch vụ có đều được kiểm ở đúng tầng đó:
 
 | Tầng | Đích | Case | Ở đâu |
 |---|---|---|---|
-| DB | SQLite mini-stay, đọc trực tiếp | 52 | `be/db` |
-| API | tính giá — số đêm × giá + thuế basis-point nguyên | 54 | `be/api` |
+| DB | SQLite mini-stay, đọc trực tiếp | 202 | `be/db` |
+| API | tính giá — số đêm × giá + thuế basis-point nguyên | 504 | `be/api` |
 | API | vòng đời đặt phòng — giữ chỗ, xác nhận, check-in/out, hủy, hết hạn, no-show | 36 | `be/api` |
 | API | tồn phòng — không overbooking, kể cả khi đồng thời | 34 | `be/api` |
 | API | ranh giới phân quyền (security) | 18 | `be/api` |
-| API | Frankfurter + phép quy đổi dựng trên nó | 36 | `be/api` |
+| API | Frankfurter + phép quy đổi dựng trên nó | 186 | `be/api` |
 | FE | các trang app mini-stay (Playwright) | 20 | `fe/ui` |
-| | **Tổng** | **250** | |
+| | **Tổng** | **1000** | |
 
 ## Bất biến đáng giá cả repo
 
